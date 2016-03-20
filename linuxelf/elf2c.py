@@ -2,11 +2,14 @@
 
 from elftools.elf import elffile
 
+def trans(x):
+    return hex(x) if type(x) is int else x
+
 def ListFmt(l, fmt):
-    return '\n'.join(fmt.format(i=i, el=el) for i, el in enumerate(l))
+    return '\n'.join(fmt.format(i=i, el=trans(el)) for i, el in enumerate(l))
 
 def DictFmt(d, fmt):
-    return '\n'.join(fmt.format(k=k, v=v) for k, v in d.iteritems())
+    return '\n'.join(fmt.format(k=k, v=trans(v)) for k, v in d.iteritems())
 
 def str2hex(s):
     return ''.join("\\x%02x" % ord(c) for c in s)
@@ -15,27 +18,30 @@ def print_elf_layout(elf):
     print "\t/* Elf File Layout */"
     e_class = elf.header.e_ident.EI_CLASS[-2:]
     blocks = [(0, elf.header.e_ehsize, elf.header.e_ehsize,
-               "Elf file header", "Elf%s_Ehdr header" % e_class)]
+               "Elf file header", "Elf%s_Ehdr header" % e_class, "")]
     
     sh_cur, sh_size = elf.header.e_shoff, elf.header.e_shentsize
     for i, section in enumerate(elf.iter_sections()):
         s_name = section.name or 'NULL'
         blocks.append((sh_cur, sh_cur+sh_size, sh_size,
                        "Section header %2d (%s)" % (i, s_name),
-                       "Elf%s_Shdr section_header%d" % (e_class, i)))
+                       "Elf%s_Shdr section_header%d" % (e_class, i),
+                       ""))
         sh_cur += sh_size
         if section.header.sh_size > 0:
             blocks.append((section.header.sh_offset,
                            section.header.sh_offset+section.header.sh_size,
                            section.header.sh_size,
-                           "Section body %2d (%s)" %(i, s_name),
-                           "unsigned char section_body%d[%d]" % (i, section.header.sh_size)))    
+                           "Section body %2d (%s)" % (i, s_name),
+                           "unsigned char section_body%d[%d]" % (i, section.header.sh_size),
+                           "0x%0x" % section.header.sh_addr))
     
     ph_cur, ph_size = elf.header.e_phoff, elf.header.e_phentsize
     for i, segment in enumerate(elf.iter_segments()):
         blocks.append((ph_cur, ph_cur+ph_size, ph_size,
-                       "Program header %2d" % i,
-                       "Elf%s_Phdr program_header%d" % (e_class, i)))
+                       "Program header %2d (%s)" % (i, segment.header.p_type),
+                       "Elf%s_Phdr program_header%d" % (e_class, i),
+                       ""))
         ph_cur += ph_size
         
     blocks.sort()
@@ -46,19 +52,18 @@ def print_elf_layout(elf):
         if begin > cur_offs:
             newblocks.append((cur_offs, begin, begin-cur_offs,
                               "Padding",
-                              "unsigned char padding%d[%d]" % (ipad, begin-cur_offs)))
+                              "unsigned char padding%d[%d]" % (ipad, begin-cur_offs),
+                              ""))
             ipad += 1
         newblocks.append(block)
         cur_offs = block[1]
     
-    print "\tstruct {"    
-    cur_offs = 0
-    delimiter = "\t\t/* %3d->+" + "-"*37 + "+ */"
-    print delimiter % cur_offs
+    print "\tstruct {"
+    delimiter = "\t/* %04xh->+" + "-"*6 + "+" + "-"*32 + "+%s */"
     for block in newblocks:
-        print "\t\t/* %5s| [%02d] %-30s | */ %s;" % ("", block[2], block[3], block[4])
-        cur_offs = block[1]
-        print delimiter % cur_offs
+        print delimiter % (block[0], "<-%s" % block[5] if block[5] else "")
+        print "\t/*%8s| %03xh | %-30s | */ %s;" % ("", block[2], block[3][:30], block[4])
+    print delimiter % (block[2], "")
     print "\t} elf = {0};"
 
 def print_header(elf):    
