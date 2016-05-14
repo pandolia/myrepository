@@ -22,7 +22,7 @@ struct Elf_File {
 /* 0200h->+------+--------------------------------+<-0x400200 */
 /*        | 080h | Section body  1 (.interp)      | */ unsigned char sect_interp[0x080];
 /* 0280h->+------+--------------------------------+<-0x400280 */
-/*        | 020h | Section body  2 (.hash)    | */ unsigned char sect_hash[0x020];
+/*        | 020h | Section body  2 (.hash)        | */ unsigned char sect_hash[0x020];
 /* 02a0h->+------+--------------------------------+<-0x4002a0 */
 /*        | 030h | Section body  3 (.dynsym)      | */ Elf64_Sym     sect_dynsym[2];
 /* 02d0h->+------+--------------------------------+<-0x4002d0 */
